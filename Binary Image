@@ -1,0 +1,65 @@
+from PIL import Image
+import numpy as np
+
+im = Image.open("Image2.jpg")
+col,row = im.size
+print(col,row)
+data = np.zeros((row*col, 5))
+pixels = im.load()
+for i in range(col):
+    for j in range(row):
+        if(pixels[i,j] == (0,0,0)):
+            r,g,b =  (0,0,0)
+        else:
+            r,g,b =  (1,1,1)
+        data[(i*row + j),:] = r,g,b,i,j
+# print(data)
+
+mean_vector = np.array([[np.mean(data[:,0])],[np.mean(data[:,1])],[np.mean(data[:,2])],[np.mean(data[:,3])],[np.mean(data[:,4])]])
+data_adjust = np.vstack((((data[:,0]) - mean_vector[0]),
+                             ((data[:,1]) - mean_vector[1]),
+                             ((data[:,2]) - mean_vector[2])
+                         ))
+
+cov_mat = np.cov(data_adjust)
+# print("Covariance Matrix: \n ",cov_mat)
+
+# eigenvectors and eigenvalues for the from the covariance matrix
+eig_val_cov, eig_vec_cov = np.linalg.eig(cov_mat)
+
+# Make a list of (eigenvalue, eigenvector) tuples
+eig_pairs = [(np.abs(eig_val_cov[i]), eig_vec_cov[:,i])
+             for i in range(len(eig_val_cov))]
+print("Eigenvector : \n",eig_vec_cov)
+print("Eigenvalues : \n",eig_val_cov)
+
+def getKey(item):
+    return item[0]
+
+eig_pairs.sort(key=getKey)
+# Sort the (eigenvalue, eigenvector) tuples from high to low
+# eig_pairs.sort(reverse=True)
+eig_pairs.reverse()
+print(eig_pairs)
+
+tot = sum(eig_val_cov)
+var_exp = [(i / tot)*100 for i in sorted(eig_val_cov, reverse=True)]
+print("Variance explained: \n",var_exp)
+
+matrix_w = np.array(eig_pairs[0][1].reshape(3,1))
+transformed = matrix_w.T.dot(data_adjust)
+
+original = (matrix_w.dot(transformed))+mean_vector[0:3]
+
+original = original.T
+print(original)
+
+original = np.around((original*255))
+
+rgbArray = np.zeros(((col-2),row,3), 'uint8')
+for i in range(col-2):
+    for j in range(row):
+        rgbArray[i,j] = original[(i*row + j),0:3]
+
+img = Image.fromarray(rgbArray)
+img.save('myimg.jpeg')
